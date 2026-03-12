@@ -1,4 +1,4 @@
-﻿// ==UserScript==
+// ==UserScript==
 // @name         NotebookLM - Eliminar fuentes (3 puntos)
 // @author       Koke
 // @namespace    notebookllm-remover
@@ -202,93 +202,49 @@
     return deleted;
   }
 
-  function createControlPanel() {
-    const panel = document.createElement("div");
-    panel.id = "notebooklm-delete-panel";
-    panel.style.position = "fixed";
-    panel.style.top = "12px";
-    panel.style.left = "50%";
-    panel.style.transform = "translateX(-50%)";
-    panel.style.zIndex = "999999";
-    panel.style.background = "#111";
-    panel.style.color = "#fff";
-    panel.style.padding = "10px 14px";
-    panel.style.borderRadius = "10px";
-    panel.style.border = "1px solid #333";
-    panel.style.boxShadow = "0 6px 20px rgba(0,0,0,0.35)";
-    panel.style.fontFamily = "Segoe UI, Arial, sans-serif";
-    panel.style.fontSize = "13px";
-    panel.style.display = "flex";
-    panel.style.gap = "10px";
-    panel.style.alignItems = "center";
+  function isTypingTarget(target) {
+    if (!target) return false;
+    if (target.isContentEditable) return true;
+    const tag = (target.tagName || "").toLowerCase();
+    return tag === "input" || tag === "textarea" || tag === "select";
+  }
 
-    const count = document.createElement("span");
-    count.textContent = "Menus detectados: 0";
+  function registerHotkey() {
+    const HOTKEY = { key: "f10", ctrl: true, shift: true, alt: false };
+    let running = false;
 
-    const status = document.createElement("span");
-    status.textContent = "Listo";
-    status.style.opacity = "0.85";
+    window.addEventListener(
+      "keydown",
+      async (ev) => {
+        if (isTypingTarget(ev.target)) return;
+        if (ev.repeat) return;
+        if (ev.key.toLowerCase() !== HOTKEY.key) return;
+        if (!!ev.ctrlKey !== HOTKEY.ctrl) return;
+        if (!!ev.shiftKey !== HOTKEY.shift) return;
+        if (!!ev.altKey !== HOTKEY.alt) return;
 
-    const button = document.createElement("button");
-    button.textContent = "Iniciar eliminacion";
-    button.style.background = "#e53935";
-    button.style.color = "#fff";
-    button.style.border = "none";
-    button.style.borderRadius = "8px";
-    button.style.padding = "7px 11px";
-    button.style.cursor = "pointer";
-    button.style.fontWeight = "600";
+        ev.preventDefault();
+        if (running) return;
+        running = true;
 
-    panel.appendChild(count);
-    panel.appendChild(button);
-    panel.appendChild(status);
-    document.body.appendChild(panel);
+        try {
+          console.log("[NotebookLM] Atajo activo: iniciando eliminacion...");
+          const total = await deleteAllFromMenus(null);
+          console.log(`[NotebookLM] Eliminacion completada. Eliminados: ${total}`);
+        } catch (err) {
+          console.error("[NotebookLM] Error en eliminacion:", err);
+        } finally {
+          running = false;
+        }
+      },
+      true
+    );
 
-    const ui = { panel, count, status, button };
-
-    const refreshCount = () => {
-      const total = getSourceMenuButtons().filter((b) => !processed.has(b)).length;
-      ui.count.textContent = `Menus detectados: ${total}`;
-      return total;
-    };
-
-    const refreshInterval = setInterval(refreshCount, 1200);
-
-    const observer = new MutationObserver(() => {
-      refreshCount();
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    button.addEventListener("click", async () => {
-      button.disabled = true;
-      button.style.opacity = "0.7";
-      try {
-        ui.status.textContent = "Iniciando...";
-        const total = await deleteAllFromMenus(ui);
-        ui.status.textContent = `Completado. Eliminados: ${total}`;
-      } catch (err) {
-        ui.status.textContent = "Error (ver consola)";
-        console.error("[NotebookLM] Error en eliminacion:", err);
-      } finally {
-        refreshCount();
-        button.disabled = false;
-        button.style.opacity = "1";
-      }
-    });
-
-    window.addEventListener("beforeunload", () => {
-      clearInterval(refreshInterval);
-      observer.disconnect();
-    });
-
-    refreshCount();
-    return ui;
+    console.log("[NotebookLM] Atajo temporal: Ctrl+Shift+F10 para eliminar fuentes.");
   }
 
   function init() {
-    if (document.getElementById("notebooklm-delete-panel")) return;
-    createControlPanel();
+    registerHotkey();
 
     console.log("Startup Succesful");
   }
